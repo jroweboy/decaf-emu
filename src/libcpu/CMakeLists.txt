@@ -12,7 +12,6 @@ GroupSources(src)
 
 target_link_libraries(libcpu
     common
-    ${ASMJIT_LIBRARIES}
     ${BINREC_LIBRARIES})
 
 if(NOT MSVC)
