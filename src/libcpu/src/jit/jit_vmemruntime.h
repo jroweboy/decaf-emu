@@ -59,6 +59,8 @@ public:
       uintptr_t alignedAddress = align_up(baseCurAddress, alignment);
       size_t curCommited = mCommittedSize.load();
 
+      memset(reinterpret_cast<void*>(baseCurAddress), 0x90, alignedSize);
+
       // Check that we did not overrun the end of the commited area
       if (alignedAddress + size > curCommited) {
          // Lock the runtime while we adjusting committed region stuff

@@ -259,8 +259,10 @@ static size_t
 sFunctionTableLen;
 
 static bool
-registerUnwindInfo(void *code, void *unwindInfo, size_t unwindSize)
+registerUnwindInfo(void *code, size_t codeSize, void *unwindInfo, size_t unwindSize)
 {
+   auto runtimeBase = static_cast<ULONG_PTR>(sRuntime->getRootAddress());
+
    // TODO: RtlAddGrowableFunctionTable() is Windows 8+ only; Windows 7 and
    //  earlier would need one table per function, or another method such as
    //  RtlInstallFunctionTableCallback().
@@ -270,15 +272,14 @@ registerUnwindInfo(void *code, void *unwindInfo, size_t unwindSize)
       sFunctionTable = new RUNTIME_FUNCTION[sFunctionTableSize];
       sFunctionTableLen = 0;
 
-      auto runtimeBase = static_cast<ULONG_PTR>(sRuntime->getRootAddress());
-      auto runtimeLimit = static_cast<ULONG_PTR>(sRuntime->getRootAddress() + sCacheSize);
-      NTSTATUS result = RtlAddGrowableFunctionTable(&sFunctionTableHandle,
-                                                    sFunctionTable,
-                                                    0,
-                                                    sFunctionTableSize,
-                                                    runtimeBase,
-                                                    runtimeLimit);
-      if (result != STATUS_SUCCESS) {
+      auto result = RtlAddGrowableFunctionTable(&sFunctionTableHandle,
+                                                sFunctionTable,
+                                                0,
+                                                static_cast<DWORD>(sFunctionTableSize),
+                                                runtimeBase,
+                                                runtimeBase + sCacheSize);
+
+      if (result) {
          gLog->error("Failed to create unwind function table: {:08X}", result);
          return false;
       }
@@ -286,23 +287,22 @@ registerUnwindInfo(void *code, void *unwindInfo, size_t unwindSize)
 
    void *unwindBuf = sRuntime->allocate(unwindSize, 8);
    if (!unwindBuf) {
-      gLog->error("Out of memory for unwind info at 0x{:X} ({} bytes)", address, unwindSize);
+      gLog->error("Out of memory for unwind info at 0x{:X} ({} bytes)", reinterpret_cast<uintptr_t>(code), unwindSize);
       return false;
    }
+
    memcpy(unwindBuf, unwindInfo, unwindSize);
 
    if (sFunctionTableLen >= sFunctionTableSize) {
       gLog->error("Unwind function table is full");
       return false;
    }
+
    auto index = sFunctionTableLen++;
-
-   sFunctionTable[index].BeginAddress = static_cast<DWORD>(static_cast<uintptr_t>(code) - sRuntime->getRootAddress());
-   sFunctionTable[index].EndAddress = sFunctionTable[index].EndAddress + codeSize;
-   sFunctionTable[index].UnwindData = static_cast<DWORD>(reinterpter_cast<uintptr_t>(unwindBuf) - sRuntime->getRootAddress);
-
-   RtlGrowFunctionTable(sFunctionTableHandle, sFunctionTableLen);
-
+   sFunctionTable[index].BeginAddress = static_cast<DWORD>(reinterpret_cast<uintptr_t>(code) - runtimeBase);
+   sFunctionTable[index].EndAddress = static_cast<DWORD>(sFunctionTable[index].BeginAddress + codeSize);
+   sFunctionTable[index].UnwindData = static_cast<DWORD>(reinterpret_cast<uintptr_t>(unwindBuf) - runtimeBase);
+   RtlGrowFunctionTable(sFunctionTableHandle, static_cast<DWORD>(sFunctionTableLen));
    return true;
 }
 
@@ -366,7 +366,7 @@ createBinrecHandle()
    memset(&setup, 0, sizeof(setup));
    setup.guest = BINREC_ARCH_PPC_7XX;
 #ifdef PLATFORM_WINDOWS
-   setup.host = binrec::Arch::X86_64_WINDOWS_SEH;
+   setup.host = binrec::Arch::BINREC_ARCH_X86_64_WINDOWS_SEH;
 #else
    setup.host = binrec::native_arch();
 #endif
@@ -471,6 +471,7 @@ createJitEntry(Core *core, ppcaddr_t address)
    // libbinrec limits, so try repeatedly with smaller code ranges if
    // the first translation attempt fails.
    uint32_t limit = 4096;
+   uint64_t codeOffset = 0;
    void *code;
    long size;
    while (!handle->translate(core, address, address+limit-1, &code, &size)) {
@@ -482,10 +483,9 @@ createJitEntry(Core *core, ppcaddr_t address)
    }
 
 #ifdef PLATFORM_WINDOWS
-   auto codeOffset = *reinterpret_cast<uint64_t *>(code);
-   auto unwindInfo = static_cast<void *>(static_cast<uintptr_t>(code) + 8);
+   codeOffset = *reinterpret_cast<uint64_t *>(code);
+   auto unwindInfo = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(code) + 8);
    auto unwindSize = codeOffset - 8;
-   code = static_cast<void *>(static_cast<uintptr_t>(code) + codeOffset);
    size -= codeOffset;
 #endif
 
@@ -496,7 +496,7 @@ createJitEntry(Core *core, ppcaddr_t address)
       return nullptr;
    }
 
-   memcpy(entryBuf, code, size);
+   memcpy(entryBuf, reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(code) + codeOffset), size);
    sJitBlocks.set(address, (JitEntry)entryBuf);
    sTotalCodeSize += size;
 
@@ -512,7 +512,6 @@ createJitEntry(Core *core, ppcaddr_t address)
    // Clear any floating-point exceptions raised by the translation so
    // the translated code doesn't pick them up.
    std::feclearexcept(FE_ALL_EXCEPT);
-
    return (JitEntry)entryBuf;
 }
 
