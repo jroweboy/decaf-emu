@@ -18,38 +18,10 @@ target_include_directories(addrlib
 set(ADDRLIB_LIBRARIES addrlib PARENT_SCOPE)
 
 # libbinrec
-set(BINREC_DIR "libbinrec")
-externalproject_add(libbinrec
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${BINREC_DIR}"
-    CMAKE_CACHE_ARGS
-        -DCMAKE_C_COMPILER:string=${CMAKE_C_COMPILER}
-        -DCMAKE_C_FLAGS:string=${CMAKE_C_FLAGS}
-        -DCMAKE_CXX_COMPILER:string=${CMAKE_CXX_COMPILER}
-        -DCMAKE_CXX_FLAGS:string=${CMAKE_CXX_FLAGS}
-        -DBINREC_ENABLE_RTL_DEBUG_OPTIMIZE:boolean=FALSE
-    INSTALL_COMMAND "")
-externalproject_get_property(libbinrec BINARY_DIR)
-set_target_properties(libbinrec PROPERTIES FOLDER libraries)
-
-if(MSVC)
-    set(BINREC_IMPORTED_LOCATION
-        IMPORTED_LOCATION_DEBUG "${BINARY_DIR}/Debug/${CMAKE_FIND_LIBRARY_PREFIXES}binrec${CMAKE_FIND_LIBRARY_SUFFIXES}"
-        IMPORTED_LOCATION_RELEASE "${BINARY_DIR}/Release/${CMAKE_FIND_LIBRARY_PREFIXES}binrec${CMAKE_FIND_LIBRARY_SUFFIXES}"
-        IMPORTED_LOCATION_RELWITHDEBINFO "${BINARY_DIR}/RelWithDebInfo/${CMAKE_FIND_LIBRARY_PREFIXES}binrec${CMAKE_FIND_LIBRARY_SUFFIXES}"
-        IMPORTED_LOCATION_MINSIZEREL "${BINARY_DIR}/MinSizeRel/${CMAKE_FIND_LIBRARY_PREFIXES}binrec${CMAKE_FIND_LIBRARY_SUFFIXES}")
-else()
-    set(BINREC_IMPORTED_LOCATION
-        IMPORTED_LOCATION "${BINARY_DIR}/${CMAKE_FIND_LIBRARY_PREFIXES}binrec.a")
-endif()
-
-add_library(binrec_import STATIC IMPORTED GLOBAL)
-add_dependencies(binrec_import binrec)
-set_target_properties(binrec_import PROPERTIES ${BINREC_IMPORTED_LOCATION})
-
-add_library(binrec_final INTERFACE)
-target_include_directories(binrec_final INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/${BINREC_DIR}/include")
-target_link_libraries(binrec_final INTERFACE binrec_import)
-set(BINREC_LIBRARIES binrec_final PARENT_SCOPE)
+set(BINREC_ENABLE_RTL_DEBUG_OPTIMIZE FALSE CACHE BOOL "Enable debug output from optimization passes")
+add_subdirectory(libbinrec)
+set_target_properties(binrec PROPERTIES FOLDER libraries)
+set(BINREC_LIBRARIES binrec PARENT_SCOPE)
 
 # cereal
 set(CEREAL_DIR "cereal")
