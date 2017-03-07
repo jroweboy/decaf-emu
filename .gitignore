@@ -1,11 +1,6 @@
-games
-docs
-obj
-build/obj
-build/GeneratedFiles
-build/texture_*
-build/shader_*
-build/*.txt
+build/
+dump/
+mlc/
 *.user
 *.suo
 *.sdf
@@ -13,8 +8,6 @@ build/*.txt
 *.opensdf
 *.opendb
 *.ipch
-debugger/bin
-dump/
 config.json
 *.txt
 !CMakeLists.txt
@@ -24,4 +17,3 @@ config.json
 *.rpx
 *.o
 !tests/hle/bin/*.rpx
-mlc/
