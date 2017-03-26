@@ -256,6 +256,8 @@ DecafSDLOpenGL::drawScanBuffer(gl::GLuint object) {
    gl::glDrawArrays(gl::GL_TRIANGLES, 0, 6);
 }
 
+static const float ASPECT_RATIO = 16.0f / 9;
+
 void
 calculateAndExecuteViewportArray(int width, int height, bool isDRC = false) {
    int vpWidth = 0, vpHeight = 0,
@@ -268,61 +270,13 @@ calculateAndExecuteViewportArray(int width, int height, bool isDRC = false) {
       vpWidth = width;
       vpHeight = height;
    } else {
-      int a = width, b = height,
-         Remainder = 0;
-
-      while (b != 0) {
-         Remainder = a % b;
-         a = b;
-         b = Remainder;
-      }
-
-      int aspectX = width / a   - 16;
-      int aspectY = height / a  - 9;
-
-      std::cerr << "Aspect = " << aspectX << ":" << aspectY << std::endl;
-
-      if (aspectX == 16 && aspectY == 9) {
-         xPadding = 0;
-         yPadding = 0;
-
-         vpWidth = width;
-         vpHeight = height;
-      } 
-
-      else if (aspectX > aspectY) {
-         vpWidth  = height * 16 / 9;
-         vpHeight = height;
-
-         xPadding = (width - vpWidth) / 2;
-         yPadding = (height - vpHeight) / 2;
-      } 
-      
-      else {
-         vpWidth = width;
-         vpHeight = width * 9 / 16;
-
-         xPadding = 0;
-         yPadding = (height - vpHeight) / 2;
-      }
-
-      /*
-      else if (height < width) {
-         vpWidth = height * 16 / 9;
-         vpHeight = height;
-
-         xPadding = (width - vpWidth) / 2;
-         yPadding = (height - vpHeight) / 2;
-      } else {
-         vpWidth = width;
-         vpHeight = width * 9 / 16;
-
-         xPadding = 0;
-         yPadding = (height - vpHeight) / 2;
-      } //*/
+      float scale = std::min(static_cast<float>(width), height * ASPECT_RATIO);
+      vpWidth = static_cast<int>(std::round(scale));
+      vpHeight = static_cast<int>(std::round(scale / ASPECT_RATIO));
+      xPadding = (width - vpWidth) / 2;
+      yPadding = (height - vpHeight) / 2;
    }
 
-SetViewport:
    float viewportArea[] = {
       xPadding, yPadding,
       vpWidth,  vpHeight
