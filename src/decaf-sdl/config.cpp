@@ -24,7 +24,7 @@ bool stretch = false;
 namespace gpu
 {
 
-bool force_sync = false;
+bool force_sync = true;
 
 } // namespace gpu
 
