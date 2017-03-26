@@ -8,6 +8,8 @@
 #include <glbinding/Binding.h>
 #include <glbinding/Meta.h>
 
+#include <iostream>
+
 static std::string
 getGlDebugSource(gl::GLenum source) {
    switch (source) {
@@ -255,7 +257,7 @@ DecafSDLOpenGL::drawScanBuffer(gl::GLuint object) {
 }
 
 void
-calculateAndExecuteViewportArray(int width, int height) {
+calculateAndExecuteViewportArray(int width, int height, bool isDRC = false) {
    int vpWidth = 0, vpHeight = 0,
       xPadding = 0, yPadding = 0;
 
@@ -266,14 +268,48 @@ calculateAndExecuteViewportArray(int width, int height) {
       vpWidth = width;
       vpHeight = height;
    } else {
-      if (height < width) {
-         if (width < 1366) {
-            vpWidth = width;
-            vpHeight = width * 9 / 16;
-         } else {
-            vpWidth = height * 16 / 9;
-            vpHeight = height;
-         }
+      int a = width, b = height,
+         Remainder = 0;
+
+      while (b != 0) {
+         Remainder = a % b;
+         a = b;
+         b = Remainder;
+      }
+
+      int aspectX = width / a   - 16;
+      int aspectY = height / a  - 9;
+
+      std::cerr << "Aspect = " << aspectX << ":" << aspectY << std::endl;
+
+      if (aspectX == 16 && aspectY == 9) {
+         xPadding = 0;
+         yPadding = 0;
+
+         vpWidth = width;
+         vpHeight = height;
+      } 
+
+      else if (aspectX > aspectY) {
+         vpWidth  = height * 16 / 9;
+         vpHeight = height;
+
+         xPadding = (width - vpWidth) / 2;
+         yPadding = (height - vpHeight) / 2;
+      } 
+      
+      else {
+         vpWidth = width;
+         vpHeight = width * 9 / 16;
+
+         xPadding = 0;
+         yPadding = (height - vpHeight) / 2;
+      }
+
+      /*
+      else if (height < width) {
+         vpWidth = height * 16 / 9;
+         vpHeight = height;
 
          xPadding = (width - vpWidth) / 2;
          yPadding = (height - vpHeight) / 2;
@@ -283,9 +319,10 @@ calculateAndExecuteViewportArray(int width, int height) {
 
          xPadding = 0;
          yPadding = (height - vpHeight) / 2;
-      }
+      } //*/
    }
 
+SetViewport:
    float viewportArea[] = {
       xPadding, yPadding,
       vpWidth,  vpHeight
@@ -340,12 +377,9 @@ DecafSDLOpenGL::drawScanBuffer_MW(gl::GLuint screenBuffer,
       SDL_GL_GetDrawableSize(mWindowDRC, &width, &height);
 
       // Calculate viewport
-      float viewportArea[] = {
-         0, 0,
-         width, height
-      };
+      calculateAndExecuteViewportArray(width, height, true);
 
-      gl::glViewportArrayv(0, 1, viewportArea);
+      // Render
       drawScanBuffer(drcBuffer);
 
       // Draw UI
